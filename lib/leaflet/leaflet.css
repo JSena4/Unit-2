@@ -1,5 +1,5 @@
 /* required styles */
-
+#map { height: 500px; }
 .leaflet-pane,
 .leaflet-tile,
 .leaflet-marker-icon,

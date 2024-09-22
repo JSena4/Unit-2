@@ -43,7 +43,7 @@ function onEachFeature(feature, layer) {
 //function to retrieve the data and place it on the map
 function getData(){
     //load the data
-    fetch("data/MegaCities.geojson")
+    fetch("data/birth-rate.geojson")
         .then(function(response){
             console.log('Response received:', response);
             return response.json();            
