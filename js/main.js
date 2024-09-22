@@ -23,15 +23,15 @@ function createMap(){
     
     //create the map
     map = L.map('map', {
-        center: [20, 0],
-        zoom: 2
+        center: [20, 15],
+        zoom: 2.7
     });
 
     //add OSM base tilelayer
     var Thunderforest_Neighbourhood = L.tileLayer('https://{s}.tile.thunderforest.com/neighbourhood/{z}/{x}/{y}.png?apikey={apikey}', {
         attribution: '© <a href="http://www.thunderforest.com/">Thunderforest</a>, © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         apikey: '9378b71f4e404a3793c0f56478f7f04c',
-        maxZoom: 22
+        maxZoom: 12
     }).addTo(map);
     
 
@@ -52,10 +52,12 @@ function onEachFeature(feature, layer) {
     };
 };
 
+
+
 //function to retrieve the data and place it on the map
 function getData(){
     //load the data
-    fetch("data/MegaCities.geojson")
+    fetch("data/BirthRates.geojson")
         .then(function(response){
             console.log('Response received:', response);
             return response.json();            
@@ -63,7 +65,14 @@ function getData(){
         //convert and parse
         .then(function(json){
             console.log('GeoJSON data:', json);
-            //create marker options
+
+            var iconOptions = L.icon({
+                iconUrl: 'img/baby.png',
+                iconSize: [30]
+
+            });
+
+            /*create marker options
             var geojsonMarkerOptions = {
                 radius: 8,
                 fillColor: "#ff7800",
@@ -71,23 +80,29 @@ function getData(){
                 weight: 1,
                 opacity: 1,
                 fillOpacity: 0.8
-            };
+            };*/
+
             //create a Leaflet GeoJSON layer and add it to the map
             L.geoJson(json, {
                 //these are options of geoJSON
                 pointToLayer: function (feature, latlng){
-                    return L.circleMarker(latlng, geojsonMarkerOptions);
+                    return L.marker(latlng,{icon: iconOptions});
                 },
                 onEachFeature: onEachFeature
-            }).addTo(map);
+            }).addTo(map).on('add', function(){
+                map.fitBounds(this.getBounds());
+            });
         })
 };
 
 document.addEventListener('DOMContentLoaded',createMap)
-document.addEventListener('resize', function() {
+document.addEventListener('resize', function(){
     map.invalidateSize();
 });
 
+
+
+//-----------------------------------------------------------
 /*ARCHIVE -- Original exercise code using MegaCities.geoJSON
 
 function debugCallback(data) {

@@ -1,8 +1,15 @@
-/* required styles */
 #map {
     width: 100vw; /* Full viewport width */
     height: 100vh; /* Full viewport height */
 }
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* required styles */
+
 .leaflet-pane,
 .leaflet-tile,
 .leaflet-marker-icon,
