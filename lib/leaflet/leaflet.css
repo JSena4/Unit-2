@@ -1,5 +1,8 @@
 /* required styles */
-#map { height: 500px; }
+#map {
+    width: 100vw; /* Full viewport width */
+    height: 100vh; /* Full viewport height */
+}
 .leaflet-pane,
 .leaflet-tile,
 .leaflet-marker-icon,

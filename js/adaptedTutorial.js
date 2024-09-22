@@ -8,6 +8,7 @@
 
 //Having the map variable be global allows for the getData() function to work.
 var map;
+
 //function to instantiate the Leaflet map
 function createMap(){
 
@@ -43,7 +44,7 @@ function onEachFeature(feature, layer) {
 //function to retrieve the data and place it on the map
 function getData(){
     //load the data
-    fetch("data\BirthRates.geojson")
+    fetch("data/MegaCities.geojson")
         .then(function(response){
             console.log('Response received:', response);
             return response.json();            
