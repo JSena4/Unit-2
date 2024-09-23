@@ -1,106 +1,96 @@
 /**
  * File: main.js
  * Author: Justin Sena
- * Date: 2024-09-14
- * For Geog 575 at University of Wisconsin Madison, Fall 2024
+ * Date: 2024-09-22
+ * Activity 5 for Geog 575 at University of Wisconsin Madison, Fall 2024
  */
 
-/*
-// Add all scripts to the JS folder
-function myFunc() {
-    var myDiv = document.getElementById("mydiv");
-    myDiv.innerHTML = "Hello World";
-}
-console.log('TESTING');
-*/
-
-//Having the map variable be global allows for the getData() function to work.
+/*Having the map variable be global allows for the getData() function to work.
+and since it's initialized with var, it can be overwritten from within the createMap() function.*/
 var map;
 
 //function to instantiate the Leaflet map
 function createMap(){
-
     
-    //create the map
+    //create the map and attaches it to the HTML element with the ID of the first option, 'map'.
     map = L.map('map', {
-        center: [20, 15],
-        zoom: 2.7
     });
 
-    //add OSM base tilelayer
+    //add base tilelayer, I used the Thunderforest.neighbourhood tileset. 
     var Thunderforest_Neighbourhood = L.tileLayer('https://{s}.tile.thunderforest.com/neighbourhood/{z}/{x}/{y}.png?apikey={apikey}', {
         attribution: '© <a href="http://www.thunderforest.com/">Thunderforest</a>, © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         apikey: '9378b71f4e404a3793c0f56478f7f04c',
-        maxZoom: 12
-    }).addTo(map);
-    
+        maxZoom: 12 //maxZoom set to 12 because seeing the country referenced is all the detail needed.
+    }).addTo(map); //add the tileset to the map
 
-    //call getData function
+    //call getData function from within Map
     getData();
 };
 
+// Function to retrieve the data and place it on the map
+function getData(){
+    // Load the data
+    fetch("data/BirthRates.geojson") //fetches the geojson
+        .then(function(response){ //after the request, run function passed the promise response
+            console.log('Response received:', response); //log response properties to console for debugging
+            return response.json(); //converts the response to json
+        })
+        //reads HTTP response and parses as json
+        .then(function(json){
+            console.log('GeoJSON data:', json); //log json to console for debugging
 
+            /*I wanted to try using an imported icon. The iconOptions are established prior to the 
+            pointToLayer function return requires them.*/
+            var iconOptions = L.icon({
+                iconUrl: 'img/baby.png',
+                iconSize: [30] //the icon was originally huge, had to reduce it to a reasonable size.
+            });
+
+            // Create a Leaflet GeoJSON layer with the fetched data and add it to the map
+            var geoJsonLayer = L.geoJson(json, {
+                /*The pointToLayer option runs a function that takes "feature" as a parameter. It is 
+                automatically populated with the current GeoJSON feature. This hung me up... 
+                The function creates marker symbols that apply latlng and iconOptions*/
+                pointToLayer: function (feature, latlng){  
+                    return L.marker(latlng, { icon: iconOptions }); 
+                },
+                //run the on each feature function to apply and configure the pop-ups.
+                onEachFeature: onEachFeature
+            }).addTo(map);
+            // Fit the map bounds to the GeoJSON layer.  All this function chaining is crazy on the brain!
+            map.fitBounds(geoJsonLayer.getBounds());
+        });
+};
+
+//This function configures the pop-up contents and behavior.
 function onEachFeature(feature, layer) {
-    //no property named popupContent; instead, create html string with all properties
+    //create variable for holding HTML string with pulls from the geoJSON
     var popupContent = "";
+    //nested ifs check for the Country Name object and prints it at the top of the popup in H3.
     if (feature.properties) {
-        //loop to add feature property names and values to html string
-        for (var property in feature.properties){
-            popupContent += "<p>" + property + ": " + feature.properties[property] + "</p>";
+        if (feature.properties["Country Name"]) {
+            popupContent += "<h3>" + feature.properties["Country Name"] + "</h3>";
         }
+        //loop to add the year information down the rest of the popup, only printing the first 4 digits
+        for (var property in feature.properties){
+            if (property !== "Country Name") {
+                popupContent += "<p>" + property.substring(0, 4) + ": " + feature.properties[property] + "</p>";
+            }
+            
+        }
+        //additional information at the bottom of the popup
+        popupContent += "<p><small>per 1,000 people.</small>" + "<br>" + "<br>" + "<small>Data Source: worldbank.org</small></p>";
         layer.bindPopup(popupContent);
     };
 };
 
-
-
-//function to retrieve the data and place it on the map
-function getData(){
-    //load the data
-    fetch("data/BirthRates.geojson")
-        .then(function(response){
-            console.log('Response received:', response);
-            return response.json();            
-        })
-        //convert and parse
-        .then(function(json){
-            console.log('GeoJSON data:', json);
-
-            var iconOptions = L.icon({
-                iconUrl: 'img/baby.png',
-                iconSize: [30]
-
-            });
-
-            /*create marker options
-            var geojsonMarkerOptions = {
-                radius: 8,
-                fillColor: "#ff7800",
-                color: "#000",
-                weight: 1,
-                opacity: 1,
-                fillOpacity: 0.8
-            };*/
-
-            //create a Leaflet GeoJSON layer and add it to the map
-            L.geoJson(json, {
-                //these are options of geoJSON
-                pointToLayer: function (feature, latlng){
-                    return L.marker(latlng,{icon: iconOptions});
-                },
-                onEachFeature: onEachFeature
-            }).addTo(map).on('add', function(){
-                map.fitBounds(this.getBounds());
-            });
-        })
-};
-
-document.addEventListener('DOMContentLoaded',createMap)
-document.addEventListener('resize', function(){
+//first event listener creates the map upon the page loading
+document.addEventListener('DOMContentLoaded', createMap);
+//second listener resizes the Leaflet map to fit the window when the window size is changed
+//I'm using this more so to accomodate any window size in use, not just upon resizings.
+window.addEventListener('resize', function(){
     map.invalidateSize();
 });
-
-
 
 //-----------------------------------------------------------
 /*ARCHIVE -- Original exercise code using MegaCities.geoJSON
