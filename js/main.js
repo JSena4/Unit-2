@@ -16,11 +16,12 @@ function createMap(){
     map = L.map('map', {
     });
 
-    //add base tilelayer, I used the Thunderforest.neighbourhood tileset. 
+    //add base tilelayer, I used the Thunderforest.neighbourhood tileset.
+    //I wouldn't use this moving forward but I went through the work of the apikey so its stays for this assignment.
     var Thunderforest_Neighbourhood = L.tileLayer('https://{s}.tile.thunderforest.com/neighbourhood/{z}/{x}/{y}.png?apikey={apikey}', {
         attribution: '© <a href="http://www.thunderforest.com/">Thunderforest</a>, © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         apikey: '9378b71f4e404a3793c0f56478f7f04c',
-        maxZoom: 12 //maxZoom set to 12 because seeing the country referenced is all the detail needed.
+        maxZoom: 5 //maxZoom set to 5 because seeing the country referenced is all the detail needed.
     }).addTo(map); //add the tileset to the map
 
     //call getData function from within Map
