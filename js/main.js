@@ -8,12 +8,16 @@
 /*Having the map variable be global allows for the getData() function to work.
 and since it's initialized with var, it can be overwritten from within the createMap() function.*/
 var map;
+var minValue;
 
-//function to instantiate the Leaflet map
-function createMap(){
-    
+//MAP, LEAFLET, SLIPPY
+function createMap() {
+
     //create the map and attaches it to the HTML element with the ID of the first option, 'map'.
+    //create the map
     map = L.map('map', {
+        center: [0, 0],
+        zoom: 2
     });
 
     //add base tilelayer, I used the Thunderforest.neighbourhood tileset.
@@ -25,10 +29,97 @@ function createMap(){
     }).addTo(map); //add the tileset to the map
 
     //call getData function from within Map
-    getData();
+    getData(map);
 };
 
-// Function to retrieve the data and place it on the map
+function calculateMinValue(data) {
+    // Create an empty array to store all data values
+    var allValues = [];
+    
+    // Loop through each country
+    for (var country of data.features) {
+        // Loop through each year from 1985 to 2020 in increments of 5
+        for (var year = 1985; year <= 2020; year += 5) {
+            // Construct the property name for the current year
+            var propertyName = year + " [YR" + year + "]";
+            // Get the value for the current year
+            var value = country.properties[propertyName];
+            // Add the value to the array if it exists
+            if (value !== undefined) {
+                allValues.push(value);
+            }
+        }
+    }
+    
+    // Get the minimum value of the array
+    var minValue = Math.min(...allValues);
+    console.log(minValue);
+    
+    return minValue;
+}
+
+
+//calculate the radius of each proportional symbol
+function calcPropRadius(attValue) {
+    //constant factor adjusts symbol sizes evenly
+    var minRadius = 5;
+    //Flannery Apperance Compensation formula
+    var radius = 1.0083 * Math.pow(attValue/minValue,0.5715) * minRadius
+    console.log(attValue); // Check the attribute value
+
+    return radius;
+};
+
+//Step 3: Add circle markers for point features to the map
+function createPropSymbols(data){
+
+    //Step 4: Determine which attribute to visualize with proportional symbols
+    var attribute = "2015 [YR2015]";
+
+    //create marker options
+    var geojsonMarkerOptions = {
+        fillColor: "#ff7800",
+        color: "#fff",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8,
+        radius: 8
+    };
+
+    L.geoJson(data, {
+        pointToLayer: function (feature, latlng) {
+            //Step 5: For each feature, determine its value for the selected attribute
+            var attValue = Number(feature.properties[attribute]);
+
+            //Step 6: Give each feature's circle marker a radius based on its attribute value
+            geojsonMarkerOptions.radius = calcPropRadius(attValue);
+
+            //create circle markers
+            return L.circleMarker(latlng, geojsonMarkerOptions);
+        },
+        onEachFeature: onEachFeature
+    }).addTo(map);
+
+    map.fitBounds(geoJsonLayer.getBounds());
+};
+
+//Step 2: Import GeoJSON data
+function getData(){
+    //load the data
+    fetch("data/BirthRates.geojson")
+        .then(function(response){
+            return response.json();
+        })
+        .then(function(json){
+            //calculate minimum data value
+            minValue = calculateMinValue(json);
+            //call function to create proportional symbols
+            createPropSymbols(json);
+        })
+};
+
+
+/*DATA & DATA STYLING
 function getData(){
     // Load the data
     fetch("data/BirthRates.geojson") //fetches the geojson
@@ -40,8 +131,7 @@ function getData(){
         .then(function(json){
             console.log('GeoJSON data:', json); //log json to console for debugging
 
-            /*I wanted to try using an imported icon. The iconOptions are established prior to the 
-            pointToLayer function return requires them.*/
+
             var iconOptions = L.icon({
                 iconUrl: 'img/baby.png',
                 iconSize: [30] //the icon was originally huge, had to reduce it to a reasonable size.
@@ -49,9 +139,7 @@ function getData(){
 
             // Create a Leaflet GeoJSON layer with the fetched data and add it to the map
             var geoJsonLayer = L.geoJson(json, {
-                /*The pointToLayer option runs a function that takes "feature" as a parameter. It is 
-                automatically populated with the current GeoJSON feature. This hung me up... 
-                The function creates marker symbols that apply latlng and iconOptions*/
+
                 pointToLayer: function (feature, latlng){  
                     return L.marker(latlng, { icon: iconOptions }); 
                 },
@@ -62,8 +150,9 @@ function getData(){
             map.fitBounds(geoJsonLayer.getBounds());
         });
 };
+*/
 
-//This function configures the pop-up contents and behavior.
+//POP-UPS
 function onEachFeature(feature, layer) {
     //create variable for holding HTML string with pulls from the geoJSON
     var popupContent = "";
@@ -86,7 +175,7 @@ function onEachFeature(feature, layer) {
 };
 
 //first event listener creates the map upon the page loading
-document.addEventListener('DOMContentLoaded', createMap);
+document.addEventListener('DOMContentLoaded',createMap)
 //second listener resizes the Leaflet map to fit the window when the window size is changed
 //I'm using this more so to accomodate any window size in use, not just upon resizings.
 window.addEventListener('resize', function(){

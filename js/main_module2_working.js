@@ -32,7 +32,7 @@ function calculateMinValue(data){
               //add value to array
               allValues.push(value);
         }
-        //console.log(allValues);
+        console.log(allValues);
     }
     //get minimum value of our array
     var minValue = Math.min(...allValues)
