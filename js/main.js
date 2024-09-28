@@ -56,8 +56,7 @@ function calculateMinValue(data) {
     console.log(minValue);
     
     return minValue;
-}
-
+};
 
 //calculate the radius of each proportional symbol
 function calcPropRadius(attValue) {
@@ -69,6 +68,79 @@ function calcPropRadius(attValue) {
 
     return radius;
 };
+
+//LESSON 2 --------------------------------------------------------------------------
+//function to convert markers to circle markers
+function pointToLayer(feature, latlng){
+    //Determine which attribute to visualize with proportional symbols
+    var attribute = "2015 [YR2015]";
+
+    //create marker options
+    var geojsonMarkerOptions = {
+        fillColor: "#ff7800",
+        color: "#fff",
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.8,
+        radius: 8
+    };
+
+    //For each feature, determine its value for the selected attribute
+    var attValue = Number(feature.properties[attribute]);
+
+    //Give each feature's circle marker a radius based on its attribute value
+    geojsonMarkerOptions.radius = calcPropRadius(attValue);
+
+    //create circle marker layer
+    var layer = L.circleMarker(latlng, geojsonMarkerOptions);
+
+    //build popup content string
+    var popupContent = "";
+    
+    //nested ifs check for the Country Name object and prints it at the top of the popup in H3.
+    if (feature.properties) {
+        if (feature.properties["Country Name"]) {
+            popupContent += "<h3>" + feature.properties["Country Name"] + "</h3>";
+        }
+        //loop to add the year information down the rest of the popup, only printing the first 4 digits
+        for (var property in feature.properties){
+            if (property !== "Country Name") {
+                popupContent += "<p>" + property.substring(0, 4) + ": " + feature.properties[property] + "</p>";
+            }
+        }
+        //additional information at the bottom of the popup
+        popupContent += "<p><small><br>per 1,000 people.</small><br><small>Data Source: worldbank.org</small></p>";
+    };
+
+    //bind the popup to the circle marker UPON HOVER LIKE A FRIGGIN BOSS
+    layer.on('mouseover', function(e) {
+        layer.bindPopup(popupContent).openPopup();
+    });
+
+    layer.on('mouseout', function(e) {
+        layer.closePopup();
+    });
+
+//    layer.bindPopup(popupContent, {
+//        offset: new L.Point(0, -geojsonMarkerOptions.radius)
+//    });
+
+    //return the circle marker to the L.geoJson pointToLayer option
+    return layer;
+};
+
+//LESSON 2----------------------------------------------------------------------------
+
+//Add circle markers for point features to the map
+function createPropSymbols(data, map){
+    //create a Leaflet GeoJSON layer and add it to the map
+    L.geoJson(data, {
+        pointToLayer: pointToLayer
+    }).addTo(map);
+
+    map.fitBounds(geoJsonLayer.getBounds());
+};
+
 
 //Step 3: Add circle markers for point features to the map
 function createPropSymbols(data){
@@ -97,10 +169,10 @@ function createPropSymbols(data){
             //create circle markers
             return L.circleMarker(latlng, geojsonMarkerOptions);
         },
-        onEachFeature: onEachFeature
+        pointToLayer: pointToLayer
     }).addTo(map);
 
-    map.fitBounds(geoJsonLayer.getBounds());
+
 };
 
 //Step 2: Import GeoJSON data
