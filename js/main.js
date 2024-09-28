@@ -12,16 +12,13 @@ var minValue;
 
 //MAP, LEAFLET, SLIPPY
 function createMap() {
-
     //create the map and attaches it to the HTML element with the ID of the first option, 'map'.
-    //create the map
     map = L.map('map', {
         center: [0, 0],
         zoom: 2
     });
 
     //add base tilelayer, I used the Thunderforest.neighbourhood tileset.
-    //I wouldn't use this moving forward but I went through the work of the apikey so its stays for this assignment.
     var Thunderforest_Neighbourhood = L.tileLayer('https://{s}.tile.thunderforest.com/neighbourhood/{z}/{x}/{y}.png?apikey={apikey}', {
         attribution: '© <a href="http://www.thunderforest.com/">Thunderforest</a>, © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         apikey: '9378b71f4e404a3793c0f56478f7f04c',
@@ -121,10 +118,6 @@ function pointToLayer(feature, latlng){
         layer.closePopup();
     });
 
-//    layer.bindPopup(popupContent, {
-//        offset: new L.Point(0, -geojsonMarkerOptions.radius)
-//    });
-
     //return the circle marker to the L.geoJson pointToLayer option
     return layer;
 };
@@ -134,45 +127,11 @@ function pointToLayer(feature, latlng){
 //Add circle markers for point features to the map
 function createPropSymbols(data, map){
     //create a Leaflet GeoJSON layer and add it to the map
-    L.geoJson(data, {
+    var geoJsonLayer = L.geoJson(data, {
         pointToLayer: pointToLayer
     }).addTo(map);
 
     map.fitBounds(geoJsonLayer.getBounds());
-};
-
-
-//Step 3: Add circle markers for point features to the map
-function createPropSymbols(data){
-
-    //Step 4: Determine which attribute to visualize with proportional symbols
-    var attribute = "2015 [YR2015]";
-
-    //create marker options
-    var geojsonMarkerOptions = {
-        fillColor: "#ff7800",
-        color: "#fff",
-        weight: 1,
-        opacity: 1,
-        fillOpacity: 0.8,
-        radius: 8
-    };
-
-    L.geoJson(data, {
-        pointToLayer: function (feature, latlng) {
-            //Step 5: For each feature, determine its value for the selected attribute
-            var attValue = Number(feature.properties[attribute]);
-
-            //Step 6: Give each feature's circle marker a radius based on its attribute value
-            geojsonMarkerOptions.radius = calcPropRadius(attValue);
-
-            //create circle markers
-            return L.circleMarker(latlng, geojsonMarkerOptions);
-        },
-        pointToLayer: pointToLayer
-    }).addTo(map);
-
-
 };
 
 //Step 2: Import GeoJSON data
@@ -186,76 +145,22 @@ function getData(){
             //calculate minimum data value
             minValue = calculateMinValue(json);
             //call function to create proportional symbols
-            createPropSymbols(json);
+            createPropSymbols(json, map);
         })
-};
-
-
-/*DATA & DATA STYLING
-function getData(){
-    // Load the data
-    fetch("data/BirthRates.geojson") //fetches the geojson
-        .then(function(response){ //after the request, run function passed the promise response
-            console.log('Response received:', response); //log response properties to console for debugging
-            return response.json(); //converts the response to json
-        })
-        //reads HTTP response and parses as json
-        .then(function(json){
-            console.log('GeoJSON data:', json); //log json to console for debugging
-
-
-            var iconOptions = L.icon({
-                iconUrl: 'img/baby.png',
-                iconSize: [30] //the icon was originally huge, had to reduce it to a reasonable size.
-            });
-
-            // Create a Leaflet GeoJSON layer with the fetched data and add it to the map
-            var geoJsonLayer = L.geoJson(json, {
-
-                pointToLayer: function (feature, latlng){  
-                    return L.marker(latlng, { icon: iconOptions }); 
-                },
-                //run the on each feature function to apply and configure the pop-ups.
-                onEachFeature: onEachFeature
-            }).addTo(map);
-            // Fit the map bounds to the GeoJSON layer.  All this function chaining is crazy on the brain!
-            map.fitBounds(geoJsonLayer.getBounds());
-        });
-};
-*/
-
-//POP-UPS
-function onEachFeature(feature, layer) {
-    //create variable for holding HTML string with pulls from the geoJSON
-    var popupContent = "";
-    //nested ifs check for the Country Name object and prints it at the top of the popup in H3.
-    if (feature.properties) {
-        if (feature.properties["Country Name"]) {
-            popupContent += "<h3>" + feature.properties["Country Name"] + "</h3>";
-        }
-        //loop to add the year information down the rest of the popup, only printing the first 4 digits
-        for (var property in feature.properties){
-            if (property !== "Country Name") {
-                popupContent += "<p>" + property.substring(0, 4) + ": " + feature.properties[property] + "</p>";
-            }
-            
-        }
-        //additional information at the bottom of the popup
-        popupContent += "<p><small>per 1,000 people.</small>" + "<br>" + "<br>" + "<small>Data Source: worldbank.org</small></p>";
-        layer.bindPopup(popupContent);
-    };
 };
 
 //first event listener creates the map upon the page loading
-document.addEventListener('DOMContentLoaded',createMap)
+document.addEventListener('DOMContentLoaded', createMap);
 //second listener resizes the Leaflet map to fit the window when the window size is changed
-//I'm using this more so to accomodate any window size in use, not just upon resizings.
 window.addEventListener('resize', function(){
     map.invalidateSize();
 });
 
+
 //-----------------------------------------------------------
 /*ARCHIVE -- Original exercise code using MegaCities.geoJSON
+
+
 
 function debugCallback(data) {
     document.querySelector("#mydiv")
