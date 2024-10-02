@@ -5,12 +5,10 @@
  * Activity 5 for Geog 575 at University of Wisconsin Madison, Fall 2024
  */
 
-/*Having the map variable be global allows for the getData() function to work.
-and since it's initialized with var, it can be overwritten from within the createMap() function.*/
 var map;
 var minValue;
 
-//MAP, LEAFLET, SLIPPY
+//MAP, LEAFLET
 function createMap() {
     //create the map and attaches it to the HTML element with the ID of the first option, 'map'.
     map = L.map('map', {
@@ -29,28 +27,36 @@ function createMap() {
     getData(map);
 };
 
+//Minimum value is needed for the Flannery Appearance Compensation Formula for creating proportional symbol sizes.
 function calculateMinValue(data) {
     // Create an empty array to store all data values
     var allValues = [];
+
+    //get the number of features in the GeoJSON data
+    //More flexible this way instead of using the specific years
+    var numFeatures = data.features.length;
     
-    // Loop through each country
-    for (var country of data.features) {
-        // Loop through each year from 1985 to 2020 in increments of 5
-        for (var year = 1985; year <= 2020; year += 5) {
-            // Construct the property name for the current year
-            var propertyName = year + " [YR" + year + "]";
-            // Get the value for the current year
-            var value = country.properties[propertyName];
-            // Add the value to the array if it exists
-            if (value !== undefined) {
-                allValues.push(value);
+    // Loop through each country in BirthRates.geojson
+    for (var i = 0; i < numFeatures; i++) {
+        var country = data.features[i];
+
+        //Loop through each property in the country's properties
+        for (var propertyName in country.properties) {
+            //check if the property name matches the pattern for the years
+            if (propertyName.match(/^\d{4} \[YR\d{4}\]$/)) {
+                var value = country.properties[propertyName];
+                //Add the value to the array if it exists
+                if (value !== undefined) {
+                    allValues.push(value);
+                }
             }
         }
-    }
+    };
     
-    // Get the minimum value of the array
+    // Get the minimum value of the array (min value is needed for Flannery Formula)
+    // The ... is a "spread operator" which passes all elements of the allValues array as arguments to Math.min
     var minValue = Math.min(...allValues);
-    console.log(minValue);
+    console.log("Min Values: " + minValue);
     
     return minValue;
 };
@@ -79,7 +85,6 @@ function pointToLayer(feature, latlng){
         weight: 1,
         opacity: 1,
         fillOpacity: 0.8,
-        radius: 8
     };
 
     //For each feature, determine its value for the selected attribute
