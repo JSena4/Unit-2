@@ -9,7 +9,8 @@
     "2010 [YR2010]":12.9,
     "2015 [YR2015]":12,
     "2020 [YR2020]":10.9},
-    "geometry":{"type":"Point","coordinates":[1.8883335,46.603354]}},
+    "geometry":{"type":"Point",
+    "coordinates":[1.8883335,46.603354]}},
 
     {"type":"Feature","properties":
     {"Country Name":"India",
