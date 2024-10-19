@@ -6,11 +6,14 @@
  */
 
 var map;
+console.log("var Map created")
 //var minValue;
 var dataStats = {};
+console.log("var dataStats created")
 
 //MAP, LEAFLET
 function createMap() {
+    console.log("function createMap started")
     //creates the map and attaches it to the HTML element with the ID of the first option, 'map'.
     map = L.map('map', {
         center: [0, 0],
@@ -30,6 +33,7 @@ function createMap() {
 
 //getData, AJAX Call, loads the data in the first .then, and parses the data to the four functions in the second .then
 function getData(){
+    console.log("function getData started")
     //load the data, loads the birth rates geojson.
     fetch("data/BirthRates.geojson")
         .then(function(response){
@@ -47,6 +51,7 @@ function getData(){
 
 //creates an array of the years in the json for sequencing through
 function createYearsArray(data) {
+    console.log("function createYearsArray started")
     var years = []; //instantiate empty array
     var properties = data.features[0].properties;
 
@@ -56,14 +61,16 @@ function createYearsArray(data) {
             years.push(attribute);//adds the year value in it's original format to the years array
         }
     }
-    //console.log(years)//debug to see the years array being built correctly
+    console.log("Years array: " + years)//debug to see the years array being built correctly
     return years;
 };
 
 //not totally sure this function is not the problem
 function calcStats(data) {
+    console.log("function calcStats started");
     // Create empty array to store all data values
     var allValues = [];
+    console.log("array allValues created");
     // Loop through each feature (country)
     for (var country of data.features) {
         // Loop through each year in the properties
@@ -79,31 +86,40 @@ function calcStats(data) {
             }
         }
     }
-    // Initialize dataStats object
-    var dataStats = {};
-    // Get min, max, mean stats for our array
+    console.log("allValues array: " + allValues);
+    // Update global dataStats object
     dataStats.min = Math.min(...allValues);
     dataStats.max = Math.max(...allValues);
     // Calculate mean value
     var sum = allValues.reduce(function(a, b) { return a + b; }, 0);
     dataStats.mean = sum / allValues.length;
-    console.log(dataStats);
-}
-
+    console.log("dataStats: ", dataStats);
+    return dataStats.min; //Return the minimum value
+};
 
 
 //Add a Leaflet layer built from the GeoJSON points and add it to the map.
 function createPropSymbols(data, years){
-    var geoJsonLayer = L.geoJson(data, {
+    console.log("createPropSymbols started");
+    var geoJsonLayer = L.geoJson(data, {        
         pointToLayer: function(feature, latlng){
             return pointToLayer(feature, latlng, years);//call pointToLayer function
         }
+        
     }).addTo(map);
+    console.log("Symbols added to map.\n\n\n\n\n")
     map.fitBounds(geoJsonLayer.getBounds()); //changes the map extent to always fit all data points in the layer
 };
 
-//Sets the benchmark symbology for the layer created from the GeoJSON.
-function pointToLayer(feature, latlng, years){
+function logCheck(countryName) {
+    console.log("Processing country: " + countryName);
+}
+
+function pointToLayer(feature, latlng, years) {
+    var countryName = feature.properties["Country Name"];
+    logCheck(countryName);
+
+    console.log("pointToLayer started");
     //Use the first position array value, the first year in the dataset (1985) but if the data were to change, using the position is more flexible than the specific year.
     var attribute = years[0];
 
@@ -123,6 +139,7 @@ function pointToLayer(feature, latlng, years){
     geojsonMarkerOptions.radius = calcPropRadius(attValue); //call caldPropRadius to run the Flannery Formula to get a radius dependent upon year indicated
 
     //create circle markers
+
     var layer = L.circleMarker(latlng, geojsonMarkerOptions);
 
     //build popup content string for popups before use of the sequencers
@@ -138,28 +155,33 @@ function pointToLayer(feature, latlng, years){
         // Additional information at the bottom of the popup, source citing
         popupContent += "<small>per 1,000 people</small><br><small>Data Source: worldbank.org</small></p>";
     };
-
+    
     // Bind the popup to the circle marker
     layer.bindPopup(popupContent, {
         offset: new L.Point(0, -geojsonMarkerOptions.radius) //offsets the popup so as not to block the marker
     });
 
     // Return the circle marker to the L.geoJson pointToLayer option
+    console.log("pointToLayer finished");
     return layer;
 };
 
 //calculate the radius of each proportional symbol
 function calcPropRadius(attValue) {
+    console.log("calcPropRadius started");
     //constant factor adjusts symbol sizes evenly
     var minRadius = minValue/1.5; //It'd be nice to be able to scale to window size or map size somehow.
     //Flannery Apperance Compensation formula
     var radius = 1.0083 * Math.pow(attValue/minValue,0.5715) * minRadius
     //console.log(attValue); // Check the attribute value
-    return radius;
+    console.log("calcPropRadius finished");
+    console.log("radius: ", radius);
+    return radius;      
 };
 
 //function creates the slider and button sequence controls
 function createSequenceControls(years) {
+    console.log("createSequenceControls started");
     var SequenceControl = L.Control.extend({
         options: {
             position: 'bottomleft'
@@ -218,7 +240,7 @@ function createSequenceControls(years) {
                     updateLegend(years[index]);
                 });
             });
-
+            console.log("Sequence controls created.\n\n\n\n\n")
             return container;
         }
     });
@@ -226,7 +248,8 @@ function createSequenceControls(years) {
     map.addControl(new SequenceControl()); // Add listeners after adding control
 }
 
-function createLegend(attributes){
+function createLegend(attributes) {
+    console.log("createLegend started.");
     var LegendControl = L.Control.extend({
         options: {
             position: 'bottomright'
@@ -238,36 +261,42 @@ function createLegend(attributes){
 
             container.innerHTML = '<p class="temporalLegend">Population in <span class="year">1980</span></p>';
 
-            //Step 1: start attribute legend svg string
+            // Step 1: start attribute legend svg string
             var svg = '<svg id="attribute-legend" width="130px" height="130px">';
 
-            //array of circle names to base loop on
+            // array of circle names to base loop on
             var circles = ["max", "mean", "min"];
 
-            //Step 2: loop to add each circle and text to svg string
-            for (var i=0; i<circles.length; i++){  
+            // Check dataStats values
+            console.log("dataStats:", dataStats);
 
-                //Step 3: assign the r and cy attributes  
-                var radius = calcPropRadius(dataStats[circles[i]]);  
-                var cy = 130 - radius;  
-    
-                //circle string  
-                svg += '<circle class="legend-circle" id="' + circles[i] + '" r="' + radius + '"cy="' + cy + '" fill="#F47821" fill-opacity="0.8" stroke="#000000" cx="65"/>';  
-            };
+            // Step 2: loop to add each circle and text to svg string
+            for (var i = 0; i < circles.length; i++) {
+                // Step 3: assign the r and cy attributes
+                var radius = calcPropRadius(dataStats[circles[i]]);
+                var cy = 130 - radius;
 
-            //close svg string
+                // circle string
+                svg += '<circle class="legend-circle" id="' + circles[i] + '" r="' + radius + '" cy="' + cy + '" fill="#F47821" fill-opacity="0.8" stroke="#000000" cx="65"/>';
+                console.log("SVG after adding circle:", svg);
+            }
+
+            // close svg string
             svg += "</svg>";
 
-            //add attribute legend svg to container
-            container.insertAdjacentHTML('beforeend',svg);
+            // add attribute legend svg to container
+            container.insertAdjacentHTML('beforeend', svg);
+
+            console.log("Final SVG string:", svg);
 
             return container;
         }
     });
 
     map.addControl(new LegendControl());
-
+    console.log("Legend control added to the map.");
 };
+
 
 function updateLegend(attribute) {
     // Extract the year from the attribute
