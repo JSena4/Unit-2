@@ -1,63 +1,69 @@
+#map-container {
+    display: block;
+    justify-content: right; /* Center horizontally */
+    align-items: center;     /* Center vertically */
+}
+
 #map {    
-    height: 400px;    
+	height: 600px;    
+    width: 800px;
+	margin: auto;
+	justify-content: center
+    display: block;
+}
+
+.sequence-control-container {
+    width: 350px;
+    height: 64px;  
+    background-color: rgba(255,255,255,0.8);  
+    padding: 10px;  
+    line-height: 45px;  
+    text-align: center;  
+    border: solid gray 1px;  
+}
+
+.legend-control-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    width: 180px;
+    height: 120px;
+    background-color: rgba(255,255,255,0.8);
+    padding: 10px;
+    text-align: center;
+    border: solid gray 1px;
+}
+
+.range-slider {  
+    width: 55%;  
+}  
+
+.step {  
+    width: 20%;  
+}  
+
+.step img {  
     width: 100%;
-    display: inline-block;
-    }
+    height: auto;  
+}  
 
-	#panel {  
-		width: 25%;  
-		padding: 20px;  
-		display: inline-block;  
-		vertical-align: top;  
-		text-align: center;  
-		line-height: 42px;  
-	}  
+#forward {  
+    float: right;  
+}  
 
-	.sequence-control-container {
-		width: 350px;
-		height: 64px;  
-		background-color: rgba(255,255,255,0.8);  
-		padding: 10px;  
-		line-height: 45px;  
-		text-align: center;  
-		border: solid gray 1px;  
-	}
-
-	.legend-control-container {
-		width: 150px;
-		background-color: rgba(255,255,255,0.8);
-		padding: 10px;
-		line-height: 45px;
-		text-align: center;
-		border: solid gray 1px;
-	}
-	
-	.range-slider {  
-		width: 55%;  
-	}  
-	
-	.step {  
-		width: 20%;  
-	}  
-	
-	.step img {  
-		width: 100%;
-		height: auto;  
-	}  
-	
-	#forward {  
-		float: right;  
-	}  
-	
-	#reverse {  
-		float: left;  
-	}
+#reverse {  
+    float: left;  
+}
 
 html, body {
     height: 100%;
     margin: 0;
+	justify-content: center;
     padding: 0;
 }
+
+
 
 /* required styles */
 
@@ -276,6 +282,7 @@ svg.leaflet-zoom-animated {
 
 .leaflet-interactive {
 	cursor: pointer;
+	outline: none;
 	}
 .leaflet-grab {
 	cursor: -webkit-grab;
@@ -334,7 +341,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 /* general typography */
 .leaflet-container {
 	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
-	font-size: 12px;
+	font-size: 10px;
 	font-size: 0.75rem;
 	line-height: 1.5;
 	}

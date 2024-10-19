@@ -16,7 +16,7 @@ function createMap() {
     console.log("function createMap started")
     //creates the map and attaches it to the HTML element with the ID of the first option, 'map'.
     map = L.map('map', {
-        center: [0, 0],
+        center: [8, 12],
         zoom: 2
     });
 
@@ -108,7 +108,7 @@ function createPropSymbols(data, years){
         
     }).addTo(map);
     console.log("Symbols added to map.\n\n\n\n\n")
-    map.fitBounds(geoJsonLayer.getBounds()); //changes the map extent to always fit all data points in the layer
+    //map.fitBounds(geoJsonLayer.getBounds()); //changes the map extent to always fit all data points in the layer
 };
 
 function logCheck(countryName) {
@@ -129,7 +129,7 @@ function pointToLayer(feature, latlng, years) {
         color: "#000",
         weight: 1,
         opacity: 1,
-        fillOpacity: 0.7,
+        fillOpacity: 0.7
     };
 
     //For each feature, determine its value for the selected attribute
@@ -139,8 +139,19 @@ function pointToLayer(feature, latlng, years) {
     geojsonMarkerOptions.radius = calcPropRadius(attValue); //call caldPropRadius to run the Flannery Formula to get a radius dependent upon year indicated
 
     //create circle markers
-
     var layer = L.circleMarker(latlng, geojsonMarkerOptions);
+
+    layer.bindTooltip(countryName, {
+        permanent: false, //Tooltip will only show on hover
+        sticky: true,
+        direction: 'top', //Position the tooltip above the marker
+        className: 'country-tooltip' //Optional: Add a custom class for styling
+    });
+
+    //event listenet to close tooltip upon click so that only the popup is open
+    layer.on('click', function() {
+        layer.closeTooltip();
+    });
 
     //build popup content string for popups before use of the sequencers
     var popupContent = "<p><b>Country:</b> " + feature.properties["Country Name"] + "</p>";
@@ -151,9 +162,6 @@ function pointToLayer(feature, latlng, years) {
 
         // Write the year, the birth rate, and some text to the popup
         popupContent += "<p><b>Crude birth rate in " + year + ": </b>" + feature.properties[attribute] + "</p>";
-
-        // Additional information at the bottom of the popup, source citing
-        popupContent += "<small>per 1,000 people</small><br><small>Data Source: worldbank.org</small></p>";
     };
     
     // Bind the popup to the circle marker
@@ -259,10 +267,11 @@ function createLegend(attributes) {
             // create the control container with a particular class name
             var container = L.DomUtil.create('div', 'legend-control-container');
 
-            container.innerHTML = '<p class="temporalLegend">Population in <span class="year">1980</span></p>';
+            container.innerHTML = '<h3 class="temporalLegend">Showing Data for <span class="year">1985</span></h3>';
+
 
             // Step 1: start attribute legend svg string
-            var svg = '<svg id="attribute-legend" width="130px" height="130px">';
+            var svg = '<svg id="attribute-legend" width="130px" height="65px">';
 
             // array of circle names to base loop on
             var circles = ["max", "mean", "min"];
@@ -274,11 +283,17 @@ function createLegend(attributes) {
             for (var i = 0; i < circles.length; i++) {
                 // Step 3: assign the r and cy attributes
                 var radius = calcPropRadius(dataStats[circles[i]]);
-                var cy = 130 - radius;
+                var cy = 30 - radius;
 
                 // circle string
-                svg += '<circle class="legend-circle" id="' + circles[i] + '" r="' + radius + '" cy="' + cy + '" fill="#F47821" fill-opacity="0.8" stroke="#000000" cx="65"/>';
+                svg += '<circle class="legend-circle" id="' + circles[i] + '" r="' + radius + '" cy="' + cy + '" fill="#F47821" fill-opacity="0.8" stroke="#000000" cx="50"/>';
                 console.log("SVG after adding circle:", svg);
+
+                //evenly space out labels            
+            var textY = i * 12+10;            
+
+            //text string            
+            svg += '<text id="' + circles[i] + '-text" x="70" y="' + textY + '">' + Math.round(dataStats[circles[i]]*100)/100 + '</text>';
             }
 
             // close svg string
@@ -288,6 +303,9 @@ function createLegend(attributes) {
             container.insertAdjacentHTML('beforeend', svg);
 
             console.log("Final SVG string:", svg);
+
+            container.insertAdjacentHTML('beforeend', "<small>per 1,000 people annually</small><small>Data Source: worldbank.org</small>");
+
 
             return container;
         }
@@ -302,7 +320,6 @@ function updateLegend(attribute) {
     // Extract the year from the attribute
     var year = attribute.match(/\d{4}/)[0];
     // Update the legend text
-    document.getElementById('legend-text').innerHTML = "Data for the year " + year;
 }
 
 function updatePropSymbols(attribute) {
@@ -319,8 +336,11 @@ function updatePropSymbols(attribute) {
             // Create the popup content
             var popupContent = "<p><b>Country: </b>" + props["Country Name"] + "</p>";
             var year = attribute.match(/\d{4}/)[0]; // Extract the year from the attribute
+
+            //update temporal legend
+            document.querySelector("span.year").innerHTML = year;
+
             popupContent += "<p><b>Crude birth rate in " + year + ": </b>" + props[attribute] + "</p>";
-            popupContent += "<small>per 1,000 people</small><br><small>Data Source: worldbank.org</small></p>";
 
             // Update the popup content
             var popup = layer.getPopup();            
@@ -336,8 +356,3 @@ function updatePropSymbols(attribute) {
 //first event listener creates the map upon the page loading
 document.addEventListener('DOMContentLoaded', createMap);
 //second listener resizes the Leaflet map to fit the window when the window size is changed
-
-//this isn't working
-window.addEventListener('resize', function(){
-    map.invalidateSize();
-});
