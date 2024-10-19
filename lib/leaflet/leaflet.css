@@ -1,6 +1,6 @@
 #map {    
     height: 400px;    
-    width: 50%;
+    width: 100%;
     display: inline-block;
     }
 
@@ -12,6 +12,26 @@
 		text-align: center;  
 		line-height: 42px;  
 	}  
+
+	.sequence-control-container {
+		width: 350px;
+		height: 64px;  
+		background-color: rgba(255,255,255,0.8);  
+		padding: 10px;  
+		line-height: 45px;  
+		text-align: center;  
+		border: solid gray 1px;  
+	}
+
+	.legend-control-container {
+		width: 150px;
+		height: 64px;
+		background-color: rgba(255,255,255,0.8);
+		padding: 10px;
+		line-height: 45px;
+		text-align: center;
+		border: solid gray 1px;
+	}
 	
 	.range-slider {  
 		width: 55%;  
@@ -22,7 +42,8 @@
 	}  
 	
 	.step img {  
-		width: 100%;  
+		width: 100%;
+		height: auto;  
 	}  
 	
 	#forward {  

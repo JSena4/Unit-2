@@ -6,7 +6,8 @@
  */
 
 var map;
-var minValue;
+//var minValue;
+var dataStats = {};
 
 //MAP, LEAFLET
 function createMap() {
@@ -37,9 +38,10 @@ function getData(){
         .then(function(json){
             //pass the data to the functions that create the layers and sequencing
             var years = createYearsArray(json);
-            minValue = calculateMinValue(json);
+            minValue = calcStats(json);
             createPropSymbols(json, years);
             createSequenceControls(years);
+            createLegend(years);
         })
 };
 
@@ -58,38 +60,37 @@ function createYearsArray(data) {
     return years;
 };
 
-//Minimum value is needed for the Flannery Appearance Compensation Formula for creating proportional symbol sizes.
-function calculateMinValue(data) {
-    // Create an empty array to store all data values
+//not totally sure this function is not the problem
+function calcStats(data) {
+    // Create empty array to store all data values
     var allValues = [];
-
-    //get the number of features in the GeoJSON data
-    //More flexible this way instead of using the specific years
-    var numFeatures = data.features.length;
-    
-    // Loop through each country in BirthRates.geojson
-    for (var i = 0; i < numFeatures; i++) {
-        var country = data.features[i];
-
-        //Loop through each property in the country's properties, kind of overkill I think but protects from bad data
-        for (var propertyName in country.properties) {
-            //check if the property name matches the pattern for the years
-            if (propertyName.match(/^\d{4} \[YR\d{4}\]$/)) {
-                var value = country.properties[propertyName];
-                //Add the value to the array if it exists
-                if (value !== undefined) {
+    // Loop through each feature (country)
+    for (var country of data.features) {
+        // Loop through each year in the properties
+        for (var attribute in country.properties) {
+            // Check if the attribute matches the year format (e.g., "1985 [YR1985]")
+            if (/\d{4} \[YR\d{4}\]/.test(attribute)) {
+                // Get population value for the current year
+                var value = country.properties[attribute];
+                // Add value to array if it's a number
+                if (!isNaN(value)) {
                     allValues.push(value);
                 }
             }
         }
-    };    
-    // Get the minimum value of the array (min value is needed for Flannery Formula)
-    // The ... is a "spread operator" which passes all elements of the allValues array as arguments to Math.min
-    var minValue = Math.min(...allValues);
-    console.log("Min Values: " + minValue);
-    
-    return minValue;
-};
+    }
+    // Initialize dataStats object
+    var dataStats = {};
+    // Get min, max, mean stats for our array
+    dataStats.min = Math.min(...allValues);
+    dataStats.max = Math.max(...allValues);
+    // Calculate mean value
+    var sum = allValues.reduce(function(a, b) { return a + b; }, 0);
+    dataStats.mean = sum / allValues.length;
+    console.log(dataStats);
+}
+
+
 
 //Add a Leaflet layer built from the GeoJSON points and add it to the map.
 function createPropSymbols(data, years){
@@ -158,64 +159,128 @@ function calcPropRadius(attValue) {
 };
 
 //function creates the slider and button sequence controls
-function createSequenceControls(years){
-    //create range input element (slider)
-    var slider = "<input class='range-slider' type='range'></input>";
-    document.querySelector("#panel").insertAdjacentHTML('beforeend',slider);
+function createSequenceControls(years) {
+    var SequenceControl = L.Control.extend({
+        options: {
+            position: 'bottomleft'
+        },
 
-    //create sequence step buttons
-    document.querySelector('#panel').insertAdjacentHTML('beforeend','<button class="step" id="reverse">Reverse</button>');//creates the reverse button in the #panel <div>
-    document.querySelector('#panel').insertAdjacentHTML('beforeend','<button class="step" id="forward">Forward</button>');//creates the forward button in the #panel <div>
-    document.querySelector('#reverse').insertAdjacentHTML('beforeend',"<img src='img/noun-left-arrow-4163466.png'>")//adds right arrow to any element in the #reverse class
-    document.querySelector('#forward').insertAdjacentHTML('beforeend',"<img src='img/noun-right-arrow-4163821.png'>")//adds right arrow to any element in the #forward class
+        onAdd: function() {
+            // Create the control container div with a particular class name
+            var container = L.DomUtil.create('div', 'sequence-control-container');
 
-    //set slider attributes
-    document.querySelector(".range-slider").max = 6; //The highest the slider can go
-    //document.querySelector(".range-slider").min = 0;  This is unnecessary
-    document.querySelector(".range-slider").value = 0; //The starting point of the slider
-    document.querySelector(".range-slider").step = 1; //incriments the slider moves in
+            // Create range input element (slider)
+            container.insertAdjacentHTML('beforeend', '<input class="range-slider" type="range">');
 
-    //Input listener for slider, changes the index value which impacts the popup, and the buttons that read from whichever position index equals.
-    document.querySelector('.range-slider').addEventListener('input', function(){
-        var index = this.value;
-        console.log("Slider moved to index position: " + index); //debug to see that slider works correctly
-        updatePropSymbols(years[index]); //change the prop symbol (radius) to indicate trends in the data
+            // Add skip buttons
+            container.insertAdjacentHTML('beforeend', '<button class="step" id="reverse" title="Reverse"><img src="img/noun-left-arrow-4163466.png"></button>'); 
+            container.insertAdjacentHTML('beforeend', '<button class="step" id="forward" title="Forward"><img src="img/noun-right-arrow-4163821.png"></button>');
+
+            // Disable any mouse event listeners for the container
+            L.DomEvent.disableClickPropagation(container);
+
+            // Set slider attributes
+            var slider = container.querySelector(".range-slider");
+            slider.max = 6; // The highest the slider can go
+            slider.value = 0; // The starting point of the slider
+            slider.step = 1; // Increments the slider moves in
+
+            // Input listener for slider
+            slider.addEventListener('input', function() {
+                var index = this.value;
+                console.log("Slider moved to index position: " + index); // Debug to see that slider works correctly
+                updatePropSymbols(years[index]); // Change the prop symbol (radius) to indicate trends in the data
+            });
+
+            // Click listener for buttons
+            container.querySelectorAll('.step').forEach(function(step) {
+                step.addEventListener("click", function() {
+                    // Moves index based on slider value in case you already changed it with the slider
+                    var index = slider.value; // Make sure the buttons change the index based on the position of the slider if it has been used
+
+                    // Increment or decrement the index value depending on which button is clicked
+                    if (step.id == 'forward') {
+                        index++;
+                        index = index > 6 ? 0 : index;
+                        console.log("Forward button clicked, new index: " + index);
+                    } else if (step.id == 'reverse') {
+                        index--;
+                        index = index < 0 ? 6 : index;
+                        console.log("Reverse button clicked, new index: " + index);
+                    }
+
+                    // Update slider to move the thumb to the new index position
+                    slider.value = index;
+
+                    // Pass new attribute to update symbols (change the radius)
+                    updatePropSymbols(years[index]);
+
+                    updateLegend(years[index]);
+                });
+            });
+
+            return container;
+        }
     });
 
-    //Click listener for buttons, the buttons were given the class "step"
-    document.querySelectorAll('.step').forEach(function(step){
-        step.addEventListener("click", function(){
-            //moves index based on slider value in case you already changed it with the slider.
-            //will be at 0 if untouched, will be where you left slider if moved
-            var index = document.querySelector('.range-slider').value; //make sure the buttons change the index based on the position of the slider if it has been used
+    map.addControl(new SequenceControl()); // Add listeners after adding control
+}
 
-            //increment or decrement the index value depending on which button is clicked
-            if (step.id == 'forward'){
-                index++;
-                index = index > 6 ? 0 : index;
-                console.log("Forward button clicked, new index: " + index);
-            } else if (step.id == 'reverse'){
-                index--;
-                index = index < 0 ? 6 : index;
-                console.log("Reverse button clicked, new index: " + index);
+function createLegend(attributes){
+    var LegendControl = L.Control.extend({
+        options: {
+            position: 'bottomright'
+        },
+
+        onAdd: function () {
+            // create the control container with a particular class name
+            var container = L.DomUtil.create('div', 'legend-control-container');
+
+            container.innerHTML = '<p class="temporalLegend">Population in <span class="year">1980</span></p>';
+
+            //Step 1: start attribute legend svg string
+            var svg = '<svg id="attribute-legend" width="130px" height="130px">';
+
+            //array of circle names to base loop on
+            var circles = ["max", "mean", "min"];
+
+            //Step 2: loop to add each circle and text to svg string
+            for (var i=0; i<circles.length; i++){  
+
+                //Step 3: assign the r and cy attributes  
+                var radius = calcPropRadius(dataStats[circles[i]]);  
+                var cy = 130 - radius;  
+    
+                //circle string  
+                svg += '<circle class="legend-circle" id="' + circles[i] + '" r="' + radius + '"cy="' + cy + '" fill="#F47821" fill-opacity="0.8" stroke="#000000" cx="65"/>';  
             };
 
-            //update slider to move the thumb to the new index position
-            document.querySelector('.range-slider').value = index;
+            //close svg string
+            svg += "</svg>";
 
-            //pass new attribute to update symbols (change the radius)
-            updatePropSymbols(years[index]);
-        });
+            //add attribute legend svg to container
+            container.insertAdjacentHTML('beforeend',svg);
+
+            return container;
+        }
     });
+
+    map.addControl(new LegendControl());
+
 };
 
+function updateLegend(attribute) {
+    // Extract the year from the attribute
+    var year = attribute.match(/\d{4}/)[0];
+    // Update the legend text
+    document.getElementById('legend-text').innerHTML = "Data for the year " + year;
+}
 
-
-function updatePropSymbols(attribute){
-    // Iterate over each layer on the map (there's only one, but maybe we built it this way because there will eventually be more??)
-    map.eachLayer(function(layer){
-        // Check if the layer has a feature and the specified attribute (again I can only imagine we did this because we might incorporate differeing datasets)
-        if (layer.feature && layer.feature.properties[attribute]){
+function updatePropSymbols(attribute) {
+    // Iterate over each layer on the map
+    map.eachLayer(function(layer) {
+        // Check if the layer has a feature and the specified attribute
+        if (layer.feature && layer.feature.properties[attribute]) {
             var props = layer.feature.properties;
 
             // Calculate the radius based on the attribute value
@@ -231,9 +296,13 @@ function updatePropSymbols(attribute){
             // Update the popup content
             var popup = layer.getPopup();            
             popup.setContent(popupContent).update();
-        };
+        }
     });
-};
+
+    // Update the legend with the current attribute
+    updateLegend(attribute);
+}
+
 
 //first event listener creates the map upon the page loading
 document.addEventListener('DOMContentLoaded', createMap);
