@@ -11,6 +11,10 @@ console.log("var Map created")
 var dataStats = {};
 console.log("var dataStats created")
 
+var differences;
+var useDifferenceColors = false;
+
+
 //MAP, LEAFLET
 function createMap() {
     console.log("function createMap started")
@@ -44,8 +48,11 @@ function getData(){
             var years = createYearsArray(json);
             minValue = calcStats(json);
             createPropSymbols(json, years);
-            createSequenceControls(years);
-            createLegend(years);
+            var averages = calculateAverages(json, years);
+            differences = calculateDifferences(json, averages, years);
+            createSequenceControls(years, averages);
+            createLegend(years, averages);
+            addToggleCheckbox(map, differences, years);            
         })
 };
 
@@ -125,7 +132,7 @@ function pointToLayer(feature, latlng, years) {
 
     //set the primary marker options
     var geojsonMarkerOptions = {
-        fillColor: "#ff7800",
+        fillColor: "#e66101",
         color: "#000",
         weight: 1,
         opacity: 1,
@@ -144,7 +151,7 @@ function pointToLayer(feature, latlng, years) {
     layer.bindTooltip(countryName, {
         permanent: false, //Tooltip will only show on hover
         sticky: true,
-        direction: 'top', //Position the tooltip above the marker
+        direction: 'top', //Position the tooltip above the cursor
         className: 'country-tooltip' //Optional: Add a custom class for styling
     });
 
@@ -176,19 +183,17 @@ function pointToLayer(feature, latlng, years) {
 
 //calculate the radius of each proportional symbol
 function calcPropRadius(attValue) {
-    console.log("calcPropRadius started");
     //constant factor adjusts symbol sizes evenly
     var minRadius = minValue/1.5; //It'd be nice to be able to scale to window size or map size somehow.
     //Flannery Apperance Compensation formula
-    var radius = 1.0083 * Math.pow(attValue/minValue,0.5715) * minRadius
+    var radius = 1.3083 * Math.pow(attValue/minValue,0.5715) * minRadius
     //console.log(attValue); // Check the attribute value
-    console.log("calcPropRadius finished");
-    console.log("radius: ", radius);
     return radius;      
 };
 
 //function creates the slider and button sequence controls
-function createSequenceControls(years) {
+// Function creates the slider and button sequence controls
+function createSequenceControls(years, averages) {
     console.log("createSequenceControls started");
     var SequenceControl = L.Control.extend({
         options: {
@@ -206,12 +211,15 @@ function createSequenceControls(years) {
             container.insertAdjacentHTML('beforeend', '<button class="step" id="reverse" title="Reverse"><img src="img/noun-left-arrow-4163466.png"></button>'); 
             container.insertAdjacentHTML('beforeend', '<button class="step" id="forward" title="Forward"><img src="img/noun-right-arrow-4163821.png"></button>');
 
+            // Add a label to display the current year
+            container.insertAdjacentHTML('beforeend', '<div class="slider-label"><span id="current-year">' + years[0].match(/\d{4}/)[0] + '</span></div>');
+
             // Disable any mouse event listeners for the container
             L.DomEvent.disableClickPropagation(container);
 
             // Set slider attributes
             var slider = container.querySelector(".range-slider");
-            slider.max = 6; // The highest the slider can go
+            slider.max = years.length - 1; // The highest the slider can go
             slider.value = 0; // The starting point of the slider
             slider.step = 1; // Increments the slider moves in
 
@@ -220,6 +228,8 @@ function createSequenceControls(years) {
                 var index = this.value;
                 console.log("Slider moved to index position: " + index); // Debug to see that slider works correctly
                 updatePropSymbols(years[index]); // Change the prop symbol (radius) to indicate trends in the data
+                document.getElementById('current-year').textContent = years[index].match(/\d{4}/)[0]; // Update the year label
+                updateLegend(years[index], averages); // Update the legend with the current year and average
             });
 
             // Click listener for buttons
@@ -231,21 +241,24 @@ function createSequenceControls(years) {
                     // Increment or decrement the index value depending on which button is clicked
                     if (step.id == 'forward') {
                         index++;
-                        index = index > 6 ? 0 : index;
+                        index = index > years.length - 1 ? 0 : index;
                         console.log("Forward button clicked, new index: " + index);
                     } else if (step.id == 'reverse') {
                         index--;
-                        index = index < 0 ? 6 : index;
+                        index = index < 0 ? years.length - 1 : index;
                         console.log("Reverse button clicked, new index: " + index);
                     }
 
                     // Update slider to move the thumb to the new index position
                     slider.value = index;
 
-                    // Pass new attribute to update symbols (change the radius)
+                    // Pass new attribute to update symbols (change the radius and color)
                     updatePropSymbols(years[index]);
 
-                    updateLegend(years[index]);
+                    // Update the year label
+                    document.getElementById('current-year').textContent = years[index].match(/\d{4}/)[0];
+
+                    updateLegend(years[index], averages); // Update the legend with the current year and average
                 });
             });
             console.log("Sequence controls created.\n\n\n\n\n")
@@ -256,7 +269,8 @@ function createSequenceControls(years) {
     map.addControl(new SequenceControl()); // Add listeners after adding control
 }
 
-function createLegend(attributes) {
+
+function createLegend(attributes, averages) {
     console.log("createLegend started.");
     var LegendControl = L.Control.extend({
         options: {
@@ -264,48 +278,60 @@ function createLegend(attributes) {
         },
 
         onAdd: function () {
-            // create the control container with a particular class name
-            var container = L.DomUtil.create('div', 'legend-control-container');
+            // Create the control container with a particular class name
+            var container = L.DomUtil.create('div', 'legend-container');
 
-            container.innerHTML = '<h3 class="temporalLegend">Showing Data for <span class="year">1985</span></h3>';
+            // Create a separate SVG for the yearMean circle
+            var yearMeanSvg = '<svg id="yearMean-legend">';
+            var yearMeanRadius = calcPropRadius(averages[attributes[0]]);
+            var fixedBottom = 70; // Fixed bottom position for the circle
+            var yearMeanCy = fixedBottom - yearMeanRadius;
+            var yearMeanCx = 157;
 
+            // SVG to add circle
+            yearMeanSvg += '<circle class="legend-circle" id="yearMean" r="' + yearMeanRadius + '" cy="' + yearMeanCy + '" fill="none" stroke="yellow" stroke-width="2" cx="' + yearMeanCx + '"/>';
 
-            // Step 1: start attribute legend svg string
-            var svg = '<svg id="attribute-legend" width="130px" height="65px">';
+            yearMeanSvg += '<text id="yearMean-value" x="' + (yearMeanCx - 57) + '" y="' + (55) + '">' + averages["1985 [YR1985]"].toFixed(2) + '</text>';
+            yearMeanSvg += '<text id="yearMean-label" x="' + (yearMeanCx - 128) + '" y="' + (55) + '"> 1985 Mean -</text>';
+            yearMeanSvg += "</svg>";
 
-            // array of circle names to base loop on
+            console.log("yearMeanRadius: ", yearMeanRadius)
+
+            // Add yearMean svg to container
+            container.insertAdjacentHTML('afterbegin', yearMeanSvg);
+
+            // Start the three circles svg string
+            var svg = '<svg id="attribute-legend">';
+
+            // Array of circle names to base loop on
             var circles = ["max", "mean", "min"];
+            // Labels for each circle
+            var labels = ["- Ethiopia, 1985", "- Mean, all years", "- Japan, 2020"]; // Custom labels
 
-            // Check dataStats values
-            console.log("dataStats:", dataStats);
-
-            // Step 2: loop to add each circle and text to svg string
+            // Loop to add each circle and text to a svg string
             for (var i = 0; i < circles.length; i++) {
-                // Step 3: assign the r and cy attributes
                 var radius = calcPropRadius(dataStats[circles[i]]);
-                var cy = 30 - radius;
+                var cy = 60 - radius;
 
-                // circle string
-                svg += '<circle class="legend-circle" id="' + circles[i] + '" r="' + radius + '" cy="' + cy + '" fill="#F47821" fill-opacity="0.8" stroke="#000000" cx="50"/>';
-                console.log("SVG after adding circle:", svg);
+                // Circle string
+                svg += '<circle class="legend-circle" id="' + circles[i] + '" r="' + radius + '" cy="' + cy + '" fill="#F47821" fill-opacity="0.8" stroke="#000000" cx="147"/>';
 
-                //evenly space out labels            
-            var textY = i * 12+10;            
+                // Evenly space out labels
+                var textY = i * 14 + 30; // Adjusted for better spacing
 
-            //text string            
-            svg += '<text id="' + circles[i] + '-text" x="70" y="' + textY + '">' + Math.round(dataStats[circles[i]]*100)/100 + '</text>';
+                // Text string for values
+                svg += '<text id="' + circles[i] + '-value" x="173" y="' + textY + '">' + Math.round(dataStats[circles[i]] * 100) / 100 + '</text>';
+                // Text string for custom labels
+                svg += '<text id="' + circles[i] + '-label" x="207" y="' + textY + '">' + labels[i] + '</text>';
             }
 
-            // close svg string
+            // Close svg string
             svg += "</svg>";
 
-            // add attribute legend svg to container
+            // Add attribute legend svg to container
             container.insertAdjacentHTML('beforeend', svg);
 
-            console.log("Final SVG string:", svg);
-
-            container.insertAdjacentHTML('beforeend', "<small>per 1,000 people annually</small><small>Data Source: worldbank.org</small>");
-
+            container.insertAdjacentHTML('beforeend', "<small>births per 1,000 people annually<br>Data Source: worldbank.org</small>");
 
             return container;
         }
@@ -313,19 +339,53 @@ function createLegend(attributes) {
 
     map.addControl(new LegendControl());
     console.log("Legend control added to the map.");
-};
+}
 
 
-function updateLegend(attribute) {
+function updateLegend(attribute, averages) {
+    //Update the label to include the year
+    var year = attribute.match(/\d{4}/)[0];
+    var yearMeanLabel = document.getElementById('yearMean-label');
+    if (yearMeanLabel) {
+        yearMeanLabel.textContent = year + " Mean -";
+    };
+
     // Extract the year from the attribute
     var year = attribute.match(/\d{4}/)[0];
     // Update the legend text
+    //document.querySelector("span.year").innerHTML = year;
+    if (averages[attribute]) {
+        var meanValue = averages[attribute].toFixed(2);
+        
+        document.getElementById('yearMean-value').textContent = meanValue; // Update the mean value for the year
+
+        // Calculate the new radius for the yearMean circle
+        var yearMeanRadius = calcYearMeanRadius(averages[attribute]);
+        var yearMeanCircle = document.getElementById('yearMean');
+        if (yearMeanCircle) {
+            var fixedBottom = 70; // Fixed bottom position for the circle
+            var yearMeanCy = fixedBottom - yearMeanRadius;
+            yearMeanCircle.setAttribute('r', yearMeanRadius); // Update the radius
+            yearMeanCircle.setAttribute('cy', yearMeanCy); // Update the cy position
+        } else {
+            console.error('Element with ID "yearMean" not found.');
+        }
+    } else {
+        console.error(`Average value for ${attribute} not found.`);
+    }
 }
 
+
+function calcYearMeanRadius(attValue) {
+    // Use the same formula or adjust as needed
+    var minRadius = minValue / 1.5;
+    var radius = 1.3083 * Math.pow(attValue / minValue, 0.5715) * minRadius;
+    return radius;
+}
+
+
 function updatePropSymbols(attribute) {
-    // Iterate over each layer on the map
     map.eachLayer(function(layer) {
-        // Check if the layer has a feature and the specified attribute
         if (layer.feature && layer.feature.properties[attribute]) {
             var props = layer.feature.properties;
 
@@ -333,12 +393,15 @@ function updatePropSymbols(attribute) {
             var radius = calcPropRadius(props[attribute]);
             layer.setRadius(radius);
 
+            // Determine the color based on the difference
+            const country = props["Country Name"];
+            const diff = differences[country][attribute];
+            const color = useDifferenceColors ? (diff < 0 ? '#d01c8b' : '#4dac26') : '#e66101';
+            layer.setStyle({ fillColor: color });
+
             // Create the popup content
             var popupContent = "<p><b>Country: </b>" + props["Country Name"] + "</p>";
             var year = attribute.match(/\d{4}/)[0]; // Extract the year from the attribute
-
-            //update temporal legend
-            document.querySelector("span.year").innerHTML = year;
 
             popupContent += "<p><b>Crude birth rate in " + year + ": </b>" + props[attribute] + "</p>";
 
@@ -346,13 +409,190 @@ function updatePropSymbols(attribute) {
             var popup = layer.getPopup();            
             popup.setContent(popupContent).update();
         }
+    })
+};
+
+
+/*  STEP 1: Calculate the average between the 16 countries for each year
+    STEP 2: Find the difference between each country's value to that year's 
+            average using index year
+    STEP 3: Recolor the marker based on the difference on a pink to green scale
+    STEP 4: Create a button that toggles between the default orange and the
+            new difference colors
+    STEP 5: Create a new legend that appears when the button is pushed showing
+            the average and the new colors in the legend  */
+
+function calculateAverages(data, years) {
+    const averages = {};
+    years.forEach(year => {
+        let sum = 0;
+        let count = 0;
+        data.features.forEach(feature => {
+            const value = feature.properties[year];
+            if (!isNaN(value)) {
+                sum += value;
+                count++;
+            }
+        });
+        averages[year] = sum / count;
+    });
+    console.log("averages: ", averages)
+    return averages;
+};
+
+function calculateDifferences(data, averages, years) {
+    const differences = {};
+    data.features.forEach(feature => {
+        const country = feature.properties["Country Name"];
+        differences[country] = {};
+        years.forEach(year => {
+            const value = feature.properties[year];
+            differences[country][year] = value - averages[year];
+        });
+    });
+    console.log("differences: ", differences)
+    return differences;
+};
+
+
+/*
+function addToggleButton(map, differences, years) {
+    // Create a new Leaflet control for the button
+    var ToggleControl = L.Control.extend({
+        options: {
+            position: 'topright'
+        },
+
+        onAdd: function() {
+            // Create the control container with a particular class name
+            var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+
+            // Create the button element
+            var button = L.DomUtil.create('button', '', container);
+            button.innerHTML = 'Toggle Colors';
+            button.style.backgroundColor = 'white';
+            button.style.border = '2px solid gray';
+            button.style.padding = '5px';
+
+            // Add click event listener to the button
+            button.onclick = function() {
+                toggleColorScale(differences, years);
+            };
+
+            return container;
+        }
     });
 
-    // Update the legend with the current attribute
-    updateLegend(attribute);
+    // Add the new control to the map
+    map.addControl(new ToggleControl());
+};
+
+
+function addToggleRadioButton(map, differences, years) {
+    var ToggleControl = L.Control.extend({
+        options: {
+            position: 'topright'
+        },
+
+        onAdd: function() {
+            var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+
+            // Create the radio button element
+            var radioButton = L.DomUtil.create('input', '', container);
+            radioButton.type = 'radio';
+            radioButton.id = 'toggleRadioButton';
+            radioButton.name = 'colorToggle';
+            radioButton.style.margin = '5px';
+
+            // Create the label for the radio button
+            var label = L.DomUtil.create('label', '', container);
+            label.htmlFor = 'toggleRadioButton';
+            label.innerHTML = 'Toggle Colorz';
+            label.style.margin = '5px';
+
+            // Add change event listener to the radio button
+            radioButton.onchange = function() {
+                toggleColorScale(differences, years);
+            };
+
+            return container;
+        }
+    });
+
+    map.addControl(new ToggleControl());
+};
+*/
+
+function addToggleCheckbox(map, differences, years) {
+    var ToggleControl = L.Control.extend({
+        options: {
+            position: 'topright'
+        },
+
+        onAdd: function() {
+            var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+
+            // Create the checkbox element
+            var checkbox = L.DomUtil.create('input', '', container);
+            checkbox.type = 'checkbox';
+            checkbox.id = 'toggleCheckbox';
+            checkbox.style.margin = '5px';
+
+            // Create the label for the checkbox
+            var label = L.DomUtil.create('label', '', container);
+            label.htmlFor = 'toggleCheckbox';
+            label.innerHTML = 'Toggle Comparison Colors';
+            label.style.margin = '5px';
+
+            // Add change event listener to the checkbox
+            checkbox.onchange = function() {
+                toggleColorScale(differences, years);
+            };
+
+            return container;
+        }
+    });
+
+    map.addControl(new ToggleControl());
 }
+
+
+
+function toggleColorScale(differences, years) {
+    useDifferenceColors = !useDifferenceColors;
+    const year = years[0]; // Use the first year for initial coloring
+
+    map.eachLayer(function(layer) {
+        if (layer.feature) {
+            const country = layer.feature.properties["Country Name"];
+            const diff = differences[country][year];
+            const color = useDifferenceColors ? (diff < 0 ? '#d01c8b' : '#4dac26') : '#e66101';
+            layer.setStyle({ fillColor: color });
+        }
+    });
+
+    updateLegendColors()
+};
+
+function updateLegendColors() {
+    const legendCircles = document.querySelectorAll('.legend-circle');
+    legendCircles.forEach(circle => {
+        const id = circle.id;
+        let color;
+        if (useDifferenceColors) {
+            color = id === 'max' || id === 'mean' ? '#4dac26' : '#d01c8b';
+        } else {
+            color = '#e66101'; // Use 'none' to specify no fill color
+        }
+        // Specifically handle the yearMean circle
+        if (id === 'yearMean') {
+            color = 'none'; // Ensure no fill color for yearMean circle
+        }
+        circle.setAttribute('fill', color);
+    });
+}
+
 
 
 //first event listener creates the map upon the page loading
 document.addEventListener('DOMContentLoaded', createMap);
-//second listener resizes the Leaflet map to fit the window when the window size is changed
